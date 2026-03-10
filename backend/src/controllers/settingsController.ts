@@ -1,18 +1,13 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import db from '../config/database';
+import pool from '../config/database';
 
 export const getSettings = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.userId;
-    const settings = db.prepare('SELECT * FROM user_settings WHERE user_id = ?').get(userId) as any;
-
-    if (!settings) {
-      res.json({ bank_balance: 0, monthly_income: 0 });
-      return;
-    }
-
-    res.json(settings);
+    const result = await pool.query('SELECT * FROM user_settings WHERE user_id = $1', [userId]);
+    if (result.rows.length === 0) { res.json({ bank_balance: 0, monthly_income: 0 }); return; }
+    res.json(result.rows[0]);
   } catch (error) {
     console.error('Get settings error:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -24,20 +19,22 @@ export const updateSettings = async (req: AuthRequest, res: Response): Promise<v
     const userId = req.userId;
     const { bank_balance, monthly_income } = req.body;
 
-    const existing = db.prepare('SELECT id FROM user_settings WHERE user_id = ?').get(userId);
+    const existing = await pool.query('SELECT id FROM user_settings WHERE user_id = $1', [userId]);
 
-    if (existing) {
-      db.prepare(
-        `UPDATE user_settings SET bank_balance = ?, monthly_income = ?, updated_at = datetime('now') WHERE user_id = ?`
-      ).run(bank_balance ?? 0, monthly_income ?? 0, userId);
+    if (existing.rows.length > 0) {
+      await pool.query(
+        'UPDATE user_settings SET bank_balance=$1, monthly_income=$2, updated_at=NOW() WHERE user_id=$3',
+        [bank_balance ?? 0, monthly_income ?? 0, userId]
+      );
     } else {
-      db.prepare(
-        'INSERT INTO user_settings (user_id, bank_balance, monthly_income) VALUES (?, ?, ?)'
-      ).run(userId, bank_balance ?? 0, monthly_income ?? 0);
+      await pool.query(
+        'INSERT INTO user_settings (user_id, bank_balance, monthly_income) VALUES ($1,$2,$3)',
+        [userId, bank_balance ?? 0, monthly_income ?? 0]
+      );
     }
 
-    const settings = db.prepare('SELECT * FROM user_settings WHERE user_id = ?').get(userId);
-    res.json(settings);
+    const result = await pool.query('SELECT * FROM user_settings WHERE user_id = $1', [userId]);
+    res.json(result.rows[0]);
   } catch (error) {
     console.error('Update settings error:', error);
     res.status(500).json({ error: 'Internal server error.' });

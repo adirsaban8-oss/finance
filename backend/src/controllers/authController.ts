@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import db from '../config/database';
+import pool from '../config/database';
 
 export const signup = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -12,8 +12,8 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-    if (existing) {
+    const existing = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+    if (existing.rows.length > 0) {
       res.status(409).json({ error: 'Username already exists.' });
       return;
     }
@@ -21,12 +21,12 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    const result = db.prepare(
-      'INSERT INTO users (username, password_hash) VALUES (?, ?)'
-    ).run(username, passwordHash);
+    const result = await pool.query(
+      'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username, created_at',
+      [username, passwordHash]
+    );
 
-    const user = db.prepare('SELECT id, username, created_at FROM users WHERE id = ?').get(result.lastInsertRowid) as any;
-
+    const user = result.rows[0];
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'default_secret', {
       expiresIn: '7d',
     });
@@ -47,7 +47,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const user = db.prepare('SELECT id, username, password_hash, created_at FROM users WHERE username = ?').get(username) as any;
+    const result = await pool.query(
+      'SELECT id, username, password_hash, created_at FROM users WHERE username = $1',
+      [username]
+    );
+    const user = result.rows[0];
     if (!user) {
       res.status(401).json({ error: 'Invalid username or password.' });
       return;

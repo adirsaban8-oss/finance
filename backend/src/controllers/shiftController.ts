@@ -1,24 +1,20 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import db from '../config/database';
+import pool from '../config/database';
 
 export const getShifts = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.userId;
     const { month } = req.query;
-
-    let query = 'SELECT * FROM shifts WHERE user_id = ?';
+    let query = 'SELECT * FROM shifts WHERE user_id = $1';
     const params: any[] = [userId];
-
     if (month) {
-      query += ` AND strftime('%Y-%m', date) = ?`;
+      query += ` AND TO_CHAR(date, 'YYYY-MM') = $2`;
       params.push(month);
     }
-
     query += ' ORDER BY date DESC';
-
-    const rows = db.prepare(query).all(...params);
-    res.json(rows);
+    const result = await pool.query(query, params);
+    res.json(result.rows);
   } catch (error) {
     console.error('Get shifts error:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -29,18 +25,13 @@ export const createShift = async (req: AuthRequest, res: Response): Promise<void
   try {
     const userId = req.userId;
     const { date, shift_type, hours, hourly_wage } = req.body;
+    if (!date || !shift_type || hours === undefined) { res.status(400).json({ error: 'Date, shift_type, and hours are required.' }); return; }
 
-    if (!date || !shift_type || hours === undefined) {
-      res.status(400).json({ error: 'Date, shift_type, and hours are required.' });
-      return;
-    }
-
-    const result = db.prepare(
-      'INSERT INTO shifts (user_id, date, shift_type, hours, hourly_wage) VALUES (?, ?, ?, ?, ?)'
-    ).run(userId, date, shift_type, hours, hourly_wage || null);
-
-    const row = db.prepare('SELECT * FROM shifts WHERE id = ?').get(result.lastInsertRowid);
-    res.status(201).json(row);
+    const result = await pool.query(
+      'INSERT INTO shifts (user_id, date, shift_type, hours, hourly_wage) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+      [userId, date, shift_type, hours, hourly_wage || null]
+    );
+    res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Create shift error:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -53,24 +44,15 @@ export const updateShift = async (req: AuthRequest, res: Response): Promise<void
     const { id } = req.params;
     const { date, shift_type, hours, hourly_wage } = req.body;
 
-    const existing = db.prepare('SELECT * FROM shifts WHERE id = ? AND user_id = ?').get(id, userId) as any;
-    if (!existing) {
-      res.status(404).json({ error: 'Shift not found.' });
-      return;
-    }
+    const existing = await pool.query('SELECT * FROM shifts WHERE id=$1 AND user_id=$2', [id, userId]);
+    if (existing.rows.length === 0) { res.status(404).json({ error: 'Shift not found.' }); return; }
+    const old = existing.rows[0];
 
-    db.prepare(
-      'UPDATE shifts SET date = ?, shift_type = ?, hours = ?, hourly_wage = ? WHERE id = ? AND user_id = ?'
-    ).run(
-      date || existing.date,
-      shift_type || existing.shift_type,
-      hours !== undefined ? hours : existing.hours,
-      hourly_wage !== undefined ? hourly_wage : existing.hourly_wage,
-      id, userId
+    const result = await pool.query(
+      'UPDATE shifts SET date=$1, shift_type=$2, hours=$3, hourly_wage=$4 WHERE id=$5 AND user_id=$6 RETURNING *',
+      [date || old.date, shift_type || old.shift_type, hours !== undefined ? hours : old.hours, hourly_wage !== undefined ? hourly_wage : old.hourly_wage, id, userId]
     );
-
-    const row = db.prepare('SELECT * FROM shifts WHERE id = ?').get(id);
-    res.json(row);
+    res.json(result.rows[0]);
   } catch (error) {
     console.error('Update shift error:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -81,13 +63,8 @@ export const deleteShift = async (req: AuthRequest, res: Response): Promise<void
   try {
     const userId = req.userId;
     const { id } = req.params;
-
-    const result = db.prepare('DELETE FROM shifts WHERE id = ? AND user_id = ?').run(id, userId);
-    if (result.changes === 0) {
-      res.status(404).json({ error: 'Shift not found.' });
-      return;
-    }
-
+    const result = await pool.query('DELETE FROM shifts WHERE id=$1 AND user_id=$2', [id, userId]);
+    if (result.rowCount === 0) { res.status(404).json({ error: 'Shift not found.' }); return; }
     res.json({ message: 'Shift deleted successfully.' });
   } catch (error) {
     console.error('Delete shift error:', error);
@@ -99,28 +76,15 @@ export const getShiftSummary = async (req: AuthRequest, res: Response): Promise<
   try {
     const userId = req.userId;
     const { month } = req.query;
-
-    let query = `
-      SELECT
-        COALESCE(SUM(hours), 0) as total_hours,
-        COALESCE(SUM(hours * COALESCE(hourly_wage, 0)), 0) as total_income,
-        COUNT(*) as shift_count
-      FROM shifts WHERE user_id = ?
-    `;
+    let query = `SELECT COALESCE(SUM(hours),0) as total_hours, COALESCE(SUM(hours * COALESCE(hourly_wage,0)),0) as total_income, COUNT(*) as shift_count FROM shifts WHERE user_id = $1`;
     const params: any[] = [userId];
-
     if (month) {
-      query += ` AND strftime('%Y-%m', date) = ?`;
+      query += ` AND TO_CHAR(date, 'YYYY-MM') = $2`;
       params.push(month);
     }
-
-    const summary = db.prepare(query).get(...params) as any;
-
-    res.json({
-      total_hours: summary.total_hours,
-      total_income: summary.total_income,
-      shift_count: summary.shift_count,
-    });
+    const result = await pool.query(query, params);
+    const row = result.rows[0];
+    res.json({ total_hours: Number(row.total_hours), total_income: Number(row.total_income), shift_count: Number(row.shift_count) });
   } catch (error) {
     console.error('Get shift summary error:', error);
     res.status(500).json({ error: 'Internal server error.' });

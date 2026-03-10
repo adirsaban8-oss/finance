@@ -1,24 +1,20 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import db from '../config/database';
+import pool from '../config/database';
 
 export const getBudgets = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.userId;
     const { month } = req.query;
-
-    let query = 'SELECT * FROM budgets WHERE user_id = ?';
+    let query = 'SELECT * FROM budgets WHERE user_id = $1';
     const params: any[] = [userId];
-
     if (month) {
-      query += ' AND month = ?';
+      query += ' AND month = $2';
       params.push(month);
     }
-
     query += ' ORDER BY category ASC';
-
-    const rows = db.prepare(query).all(...params);
-    res.json(rows);
+    const result = await pool.query(query, params);
+    res.json(result.rows);
   } catch (error) {
     console.error('Get budgets error:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -29,30 +25,25 @@ export const createOrUpdateBudget = async (req: AuthRequest, res: Response): Pro
   try {
     const userId = req.userId;
     const { month, monthly_budget, category, category_budget } = req.body;
+    if (!month) { res.status(400).json({ error: 'Month is required.' }); return; }
 
-    if (!month) {
-      res.status(400).json({ error: 'Month is required.' });
-      return;
-    }
+    const existing = await pool.query(
+      'SELECT id FROM budgets WHERE user_id = $1 AND month = $2 AND category IS NOT DISTINCT FROM $3',
+      [userId, month, category || null]
+    );
 
-    const existing = db.prepare(
-      'SELECT id FROM budgets WHERE user_id = ? AND month = ? AND category IS ?'
-    ).get(userId, month, category || null) as any;
-
-    if (existing) {
-      db.prepare(
-        'UPDATE budgets SET monthly_budget = ?, category_budget = ? WHERE id = ?'
-      ).run(monthly_budget || null, category_budget || null, existing.id);
-
-      const row = db.prepare('SELECT * FROM budgets WHERE id = ?').get(existing.id);
-      res.status(200).json(row);
+    if (existing.rows.length > 0) {
+      const result = await pool.query(
+        'UPDATE budgets SET monthly_budget=$1, category_budget=$2 WHERE id=$3 RETURNING *',
+        [monthly_budget || null, category_budget || null, existing.rows[0].id]
+      );
+      res.status(200).json(result.rows[0]);
     } else {
-      const result = db.prepare(
-        'INSERT INTO budgets (user_id, month, monthly_budget, category, category_budget) VALUES (?, ?, ?, ?, ?)'
-      ).run(userId, month, monthly_budget || null, category || null, category_budget || null);
-
-      const row = db.prepare('SELECT * FROM budgets WHERE id = ?').get(result.lastInsertRowid);
-      res.status(201).json(row);
+      const result = await pool.query(
+        'INSERT INTO budgets (user_id, month, monthly_budget, category, category_budget) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+        [userId, month, monthly_budget || null, category || null, category_budget || null]
+      );
+      res.status(201).json(result.rows[0]);
     }
   } catch (error) {
     console.error('Create/update budget error:', error);
@@ -64,48 +55,31 @@ export const getBudgetStatus = async (req: AuthRequest, res: Response): Promise<
   try {
     const userId = req.userId;
     const { month } = req.query;
+    if (!month) { res.status(400).json({ error: 'Month query parameter is required.' }); return; }
 
-    if (!month) {
-      res.status(400).json({ error: 'Month query parameter is required.' });
-      return;
-    }
+    const budgets = await pool.query('SELECT * FROM budgets WHERE user_id=$1 AND month=$2', [userId, month]);
 
-    const budgets = db.prepare('SELECT * FROM budgets WHERE user_id = ? AND month = ?').all(userId, month) as any[];
-
-    const expenses = db.prepare(
-      `SELECT category, COALESCE(SUM(amount), 0) as total_spent
-       FROM expenses
-       WHERE user_id = ? AND strftime('%Y-%m', date) = ?
-       GROUP BY category`
-    ).all(userId, month) as any[];
-
+    const expenses = await pool.query(
+      `SELECT category, COALESCE(SUM(amount),0) as total_spent FROM expenses WHERE user_id=$1 AND TO_CHAR(date,'YYYY-MM')=$2 GROUP BY category`,
+      [userId, month]
+    );
     const expenseMap: Record<string, number> = {};
-    expenses.forEach((row: any) => {
-      expenseMap[row.category] = Number(row.total_spent);
-    });
+    expenses.rows.forEach((row: any) => { expenseMap[row.category] = Number(row.total_spent); });
 
-    const totalSpentRow = db.prepare(
-      `SELECT COALESCE(SUM(amount), 0) as total_spent
-       FROM expenses
-       WHERE user_id = ? AND strftime('%Y-%m', date) = ?`
-    ).get(userId, month) as any;
-    const totalSpent = Number(totalSpentRow.total_spent);
+    const totalSpentResult = await pool.query(
+      `SELECT COALESCE(SUM(amount),0) as total_spent FROM expenses WHERE user_id=$1 AND TO_CHAR(date,'YYYY-MM')=$2`,
+      [userId, month]
+    );
+    const totalSpent = Number(totalSpentResult.rows[0].total_spent);
 
-    const categoryStatus = budgets.map((budget: any) => {
+    const categoryStatus = budgets.rows.map((budget: any) => {
       const spent = expenseMap[budget.category] || 0;
       const budgetAmount = Number(budget.category_budget) || 0;
       const percentage = budgetAmount > 0 ? (spent / budgetAmount) * 100 : 0;
-
-      return {
-        category: budget.category,
-        budget: budgetAmount,
-        spent,
-        remaining: budgetAmount - spent,
-        percentage: Math.round(percentage * 100) / 100,
-      };
+      return { category: budget.category, budget: budgetAmount, spent, remaining: budgetAmount - spent, percentage: Math.round(percentage * 100) / 100 };
     });
 
-    const monthlyBudget = budgets.length > 0 ? Number(budgets[0].monthly_budget) || 0 : 0;
+    const monthlyBudget = budgets.rows.length > 0 ? Number(budgets.rows[0].monthly_budget) || 0 : 0;
     const monthlyPercentage = monthlyBudget > 0 ? (totalSpent / monthlyBudget) * 100 : 0;
 
     res.json({

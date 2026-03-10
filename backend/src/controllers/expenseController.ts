@@ -1,34 +1,33 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import db from '../config/database';
+import pool from '../config/database';
 
 export const getExpenses = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.userId;
     const { month, category, search } = req.query;
 
-    let query = 'SELECT * FROM expenses WHERE user_id = ?';
+    let query = 'SELECT * FROM expenses WHERE user_id = $1';
     const params: any[] = [userId];
+    let p = 2;
 
     if (month) {
-      query += ` AND strftime('%Y-%m', date) = ?`;
+      query += ` AND TO_CHAR(date, 'YYYY-MM') = $${p++}`;
       params.push(month);
     }
-
     if (category) {
-      query += ' AND category = ?';
+      query += ` AND category = $${p++}`;
       params.push(category);
     }
-
     if (search) {
-      query += ' AND (description LIKE ? OR category LIKE ?)';
+      query += ` AND (description ILIKE $${p} OR category ILIKE $${p + 1})`;
       params.push(`%${search}%`, `%${search}%`);
+      p += 2;
     }
 
     query += ' ORDER BY date DESC, created_at DESC';
-
-    const rows = db.prepare(query).all(...params);
-    res.json(rows);
+    const result = await pool.query(query, params);
+    res.json(result.rows);
   } catch (error) {
     console.error('Get expenses error:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -39,18 +38,13 @@ export const createExpense = async (req: AuthRequest, res: Response): Promise<vo
   try {
     const userId = req.userId;
     const { date, amount, category, description } = req.body;
+    if (!date || !amount || !category) { res.status(400).json({ error: 'Date, amount, and category are required.' }); return; }
 
-    if (!date || !amount || !category) {
-      res.status(400).json({ error: 'Date, amount, and category are required.' });
-      return;
-    }
-
-    const result = db.prepare(
-      'INSERT INTO expenses (user_id, date, amount, category, description) VALUES (?, ?, ?, ?, ?)'
-    ).run(userId, date, amount, category, description);
-
-    const row = db.prepare('SELECT * FROM expenses WHERE id = ?').get(result.lastInsertRowid);
-    res.status(201).json(row);
+    const result = await pool.query(
+      'INSERT INTO expenses (user_id, date, amount, category, description) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+      [userId, date, amount, category, description]
+    );
+    res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Create expense error:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -63,24 +57,15 @@ export const updateExpense = async (req: AuthRequest, res: Response): Promise<vo
     const { id } = req.params;
     const { date, amount, category, description } = req.body;
 
-    const existing = db.prepare('SELECT * FROM expenses WHERE id = ? AND user_id = ?').get(id, userId) as any;
-    if (!existing) {
-      res.status(404).json({ error: 'Expense not found.' });
-      return;
-    }
+    const existing = await pool.query('SELECT * FROM expenses WHERE id = $1 AND user_id = $2', [id, userId]);
+    if (existing.rows.length === 0) { res.status(404).json({ error: 'Expense not found.' }); return; }
+    const old = existing.rows[0];
 
-    db.prepare(
-      'UPDATE expenses SET date = ?, amount = ?, category = ?, description = ? WHERE id = ? AND user_id = ?'
-    ).run(
-      date || existing.date,
-      amount || existing.amount,
-      category || existing.category,
-      description !== undefined ? description : existing.description,
-      id, userId
+    const result = await pool.query(
+      'UPDATE expenses SET date=$1, amount=$2, category=$3, description=$4 WHERE id=$5 AND user_id=$6 RETURNING *',
+      [date || old.date, amount || old.amount, category || old.category, description !== undefined ? description : old.description, id, userId]
     );
-
-    const row = db.prepare('SELECT * FROM expenses WHERE id = ?').get(id);
-    res.json(row);
+    res.json(result.rows[0]);
   } catch (error) {
     console.error('Update expense error:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -91,13 +76,8 @@ export const deleteExpense = async (req: AuthRequest, res: Response): Promise<vo
   try {
     const userId = req.userId;
     const { id } = req.params;
-
-    const result = db.prepare('DELETE FROM expenses WHERE id = ? AND user_id = ?').run(id, userId);
-    if (result.changes === 0) {
-      res.status(404).json({ error: 'Expense not found.' });
-      return;
-    }
-
+    const result = await pool.query('DELETE FROM expenses WHERE id=$1 AND user_id=$2', [id, userId]);
+    if (result.rowCount === 0) { res.status(404).json({ error: 'Expense not found.' }); return; }
     res.json({ message: 'Expense deleted successfully.' });
   } catch (error) {
     console.error('Delete expense error:', error);
