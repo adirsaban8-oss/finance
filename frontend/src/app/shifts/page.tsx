@@ -152,21 +152,12 @@ export default function ShiftsPage() {
           </div>
 
           {/* Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="card p-6 text-center">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                 סה&quot;כ משמרות
               </p>
               <p className="text-3xl font-bold text-primary">{totalShifts}</p>
-            </div>
-            <div className="card p-6 text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <FiClock className="text-gray-400" />
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  סכום שעות
-                </p>
-              </div>
-              <p className="text-3xl font-bold text-blue-600">{totalHours}</p>
             </div>
           </div>
 
