@@ -34,7 +34,9 @@ export const initDB = async (): Promise<void> => {
         date DATE NOT NULL,
         shift_type VARCHAR(50) NOT NULL,
         hours DECIMAL(4,1) NOT NULL,
-        hourly_wage DECIMAL(8,2)
+        hourly_wage DECIMAL(8,2),
+        shift_hours VARCHAR(20),
+        description TEXT
       );
 
       CREATE TABLE IF NOT EXISTS credit_cards (
@@ -88,6 +90,11 @@ export const initDB = async (): Promise<void> => {
         category_budget DECIMAL(10,2),
         UNIQUE(user_id, month, category)
       );
+    `);
+    // Add new columns if they don't exist
+    await pool.query(`
+      ALTER TABLE shifts ADD COLUMN IF NOT EXISTS shift_hours VARCHAR(20);
+      ALTER TABLE shifts ADD COLUMN IF NOT EXISTS description TEXT;
     `);
     console.log('Database tables initialized successfully');
   } catch (error) {

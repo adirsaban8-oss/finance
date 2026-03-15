@@ -6,7 +6,7 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { FiPlus, FiEdit2, FiTrash2, FiClock, FiBriefcase } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiClock } from 'react-icons/fi';
 
 
 interface Shift {
@@ -15,6 +15,8 @@ interface Shift {
   shift_type: string;
   hours: number;
   hourly_wage?: number;
+  shift_hours?: string;
+  description?: string;
 }
 
 export default function ShiftsPage() {
@@ -28,6 +30,8 @@ export default function ShiftsPage() {
   const [shiftType, setShiftType] = useState('');
   const [hours, setHours] = useState('');
   const [hourlyWage, setHourlyWage] = useState('');
+  const [shiftHours, setShiftHours] = useState('');
+  const [description, setDescription] = useState('');
 
   // Filter
   const [filterMonth, setFilterMonth] = useState(
@@ -59,6 +63,8 @@ export default function ShiftsPage() {
         date,
         shift_type: shiftType,
         hours: parseFloat(hours),
+        shift_hours: shiftHours || null,
+        description: description || null,
       };
       if (hourlyWage) payload.hourly_wage = parseFloat(hourlyWage);
 
@@ -95,6 +101,8 @@ export default function ShiftsPage() {
     setShiftType(shift.shift_type);
     setHours(String(shift.hours));
     setHourlyWage(shift.hourly_wage ? String(shift.hourly_wage) : '');
+    setShiftHours(shift.shift_hours || '');
+    setDescription(shift.description || '');
     setModalOpen(true);
   };
 
@@ -104,15 +112,13 @@ export default function ShiftsPage() {
     setShiftType('');
     setHours('');
     setHourlyWage('');
+    setShiftHours('');
+    setDescription('');
   };
 
   // Summary
   const totalShifts = shifts.length;
   const totalHours = shifts.reduce((sum, s) => sum + s.hours, 0);
-  const estimatedIncome = shifts.reduce(
-    (sum, s) => sum + s.hours * (s.hourly_wage || 0),
-    0
-  );
 
   return (
     <ProtectedRoute>
@@ -146,7 +152,7 @@ export default function ShiftsPage() {
           </div>
 
           {/* Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="card p-6 text-center">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                 סה&quot;כ משמרות
@@ -157,21 +163,10 @@ export default function ShiftsPage() {
               <div className="flex items-center justify-center gap-2 mb-1">
                 <FiClock className="text-gray-400" />
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  סה&quot;כ שעות
+                  סכום שעות
                 </p>
               </div>
               <p className="text-3xl font-bold text-blue-600">{totalHours}</p>
-            </div>
-            <div className="card p-6 text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <FiBriefcase className="text-gray-400" />
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  הכנסה משוערת
-                </p>
-              </div>
-              <p className="text-3xl font-bold text-green-600">
-                ₪{estimatedIncome.toLocaleString()}
-              </p>
             </div>
           </div>
 
@@ -191,9 +186,9 @@ export default function ShiftsPage() {
                     <tr>
                       <th>תאריך</th>
                       <th>סוג משמרת</th>
+                      <th>שעות משמרת</th>
                       <th>שעות עבודה</th>
-                      <th>שכר לשעה</th>
-                      <th>סה&quot;כ</th>
+                      <th>תיאור</th>
                       <th>פעולות</th>
                     </tr>
                   </thead>
@@ -208,16 +203,12 @@ export default function ShiftsPage() {
                             {shift.shift_type}
                           </span>
                         </td>
-                        <td>{shift.hours}</td>
-                        <td>
-                          {shift.hourly_wage
-                            ? `₪${shift.hourly_wage}`
-                            : '-'}
+                        <td className="font-mono text-sm">
+                          {shift.shift_hours || '-'}
                         </td>
-                        <td className="font-medium text-green-600">
-                          {shift.hourly_wage
-                            ? `₪${(shift.hours * shift.hourly_wage).toLocaleString()}`
-                            : '-'}
+                        <td>{shift.hours}</td>
+                        <td className="text-sm text-gray-600 dark:text-gray-400">
+                          {shift.description || '-'}
                         </td>
                         <td>
                           <div className="flex items-center gap-2">
@@ -280,6 +271,18 @@ export default function ShiftsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  שעות משמרת
+                </label>
+                <input
+                  type="text"
+                  value={shiftHours}
+                  onChange={(e) => setShiftHours(e.target.value)}
+                  className="w-full"
+                  placeholder="לדוגמה: 07:00-15:00"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   שעות עבודה
                 </label>
                 <input
@@ -294,15 +297,14 @@ export default function ShiftsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  שכר לשעה (אופציונלי)
+                  תיאור משמרת
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
-                  value={hourlyWage}
-                  onChange={(e) => setHourlyWage(e.target.value)}
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                   className="w-full"
-                  placeholder="0.00"
+                  placeholder="תיאור אופציונלי..."
                 />
               </div>
               <div className="flex gap-3 pt-2">
