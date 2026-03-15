@@ -128,7 +128,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Mobile bottom nav */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 shadow-[0_-2px_10px_rgba(0,0,0,0.1)] flex justify-around items-center py-2 z-30">
-          {navItems.slice(0, 5).map((item) => {
+          {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
