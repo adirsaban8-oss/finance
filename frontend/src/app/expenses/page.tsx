@@ -9,7 +9,7 @@ import ExpenseChart from '@/components/charts/ExpenseChart';
 import CategoryChart from '@/components/charts/CategoryChart';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiFilter, FiTarget } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiFilter, FiTarget } from 'react-icons/fi';
 
 const CATEGORIES = ['אוכל', 'תחבורה', 'קניות', 'בילויים', 'חשבונות', 'אחר'];
 
@@ -59,7 +59,6 @@ export default function ExpensesPage() {
     new Date().toISOString().slice(0, 7)
   );
   const [filterCategory, setFilterCategory] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchExpenses();
@@ -191,27 +190,19 @@ export default function ExpensesPage() {
     setDescription('');
   };
 
-  const filteredExpenses = expenses.filter((e) => {
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return (
-        e.description.toLowerCase().includes(q) ||
-        e.category.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  // Monthly total
+  const monthlyTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
 
   // Chart data
   const categoryTotals = CATEGORIES.map((cat) => ({
     label: cat,
-    total: filteredExpenses
+    total: expenses
       .filter((e) => e.category === cat)
       .reduce((sum, e) => sum + e.amount, 0),
   })).filter((c) => c.total > 0);
 
   const dailyTotals: Record<string, number> = {};
-  filteredExpenses.forEach((e) => {
+  expenses.forEach((e) => {
     const day = new Date(e.date).toLocaleDateString('he-IL');
     dailyTotals[day] = (dailyTotals[day] || 0) + e.amount;
   });
@@ -283,6 +274,16 @@ export default function ExpensesPage() {
             </div>
           )}
 
+          {/* Monthly Total */}
+          <div className="card p-6 text-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+              סה&quot;כ הוצאות החודש
+            </p>
+            <p className="text-3xl font-bold text-red-500">
+              ₪{monthlyTotal.toLocaleString()}
+            </p>
+          </div>
+
           {/* Filters */}
           <div className="card p-4 flex flex-col sm:flex-row gap-4">
             <div className="flex items-center gap-2">
@@ -306,16 +307,6 @@ export default function ExpensesPage() {
                 </option>
               ))}
             </select>
-            <div className="relative flex-1">
-              <FiSearch className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="חיפוש..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pr-10 text-sm"
-              />
-            </div>
           </div>
 
           {loading ? (
@@ -326,7 +317,7 @@ export default function ExpensesPage() {
             <>
               {/* Expenses Table */}
               <div className="card overflow-x-auto">
-                {filteredExpenses.length === 0 ? (
+                {expenses.length === 0 ? (
                   <div className="p-8 text-center text-gray-500">
                     לא נמצאו הוצאות
                   </div>
@@ -342,7 +333,7 @@ export default function ExpensesPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredExpenses.map((expense) => (
+                      {expenses.map((expense) => (
                         <tr key={expense.id} className="animate-fadeIn">
                           <td>
                             {new Date(expense.date).toLocaleDateString('he-IL')}
