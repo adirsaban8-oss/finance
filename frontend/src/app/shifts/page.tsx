@@ -124,7 +124,7 @@ export default function ShiftsPage() {
   // Summary
   const totalShifts = shifts.length;
   const totalHours = shifts.reduce((sum, s) => sum + s.hours, 0);
-  const totalAmount = shifts.reduce((sum, s) => sum + (s.shift_amount || 0), 0);
+  const totalAmount = shifts.reduce((sum, s) => sum + (Number(s.shift_amount) || 0), 0);
 
   return (
     <ProtectedRoute>
@@ -212,7 +212,7 @@ export default function ShiftsPage() {
                         </td>
                         <td>{shift.hours}</td>
                         <td className="font-medium text-green-500">
-                          {shift.shift_amount ? `₪${shift.shift_amount.toLocaleString()}` : '-'}
+                          {shift.shift_amount ? `₪${Number(shift.shift_amount).toLocaleString()}` : '-'}
                         </td>
                         <td className="text-sm text-gray-600 dark:text-gray-400">
                           {shift.description || '-'}
