@@ -17,6 +17,7 @@ interface Shift {
   hourly_wage?: number;
   shift_hours?: string;
   description?: string;
+  shift_amount?: number;
 }
 
 export default function ShiftsPage() {
@@ -32,6 +33,7 @@ export default function ShiftsPage() {
   const [hourlyWage, setHourlyWage] = useState('');
   const [shiftHours, setShiftHours] = useState('');
   const [description, setDescription] = useState('');
+  const [shiftAmount, setShiftAmount] = useState('');
 
   // Filter
   const [filterMonth, setFilterMonth] = useState(
@@ -65,6 +67,7 @@ export default function ShiftsPage() {
         hours: parseFloat(hours),
         shift_hours: shiftHours || null,
         description: description || null,
+        shift_amount: shiftAmount ? parseFloat(shiftAmount) : null,
       };
       if (hourlyWage) payload.hourly_wage = parseFloat(hourlyWage);
 
@@ -103,6 +106,7 @@ export default function ShiftsPage() {
     setHourlyWage(shift.hourly_wage ? String(shift.hourly_wage) : '');
     setShiftHours(shift.shift_hours || '');
     setDescription(shift.description || '');
+    setShiftAmount(shift.shift_amount ? String(shift.shift_amount) : '');
     setModalOpen(true);
   };
 
@@ -114,11 +118,13 @@ export default function ShiftsPage() {
     setHourlyWage('');
     setShiftHours('');
     setDescription('');
+    setShiftAmount('');
   };
 
   // Summary
   const totalShifts = shifts.length;
   const totalHours = shifts.reduce((sum, s) => sum + s.hours, 0);
+  const totalAmount = shifts.reduce((sum, s) => sum + (s.shift_amount || 0), 0);
 
   return (
     <ProtectedRoute>
@@ -152,12 +158,18 @@ export default function ShiftsPage() {
           </div>
 
           {/* Summary */}
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="card p-6 text-center">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                 סה&quot;כ משמרות
               </p>
               <p className="text-3xl font-bold text-primary">{totalShifts}</p>
+            </div>
+            <div className="card p-6 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                סה&quot;כ הכנסות החודש
+              </p>
+              <p className="text-3xl font-bold text-green-500">₪{totalAmount.toLocaleString()}</p>
             </div>
           </div>
 
@@ -179,6 +191,7 @@ export default function ShiftsPage() {
                       <th>סוג משמרת</th>
                       <th>שעות משמרת</th>
                       <th>שעות עבודה</th>
+                      <th>סכום משמרת</th>
                       <th>תיאור</th>
                       <th>פעולות</th>
                     </tr>
@@ -198,6 +211,9 @@ export default function ShiftsPage() {
                           {shift.shift_hours || '-'}
                         </td>
                         <td>{shift.hours}</td>
+                        <td className="font-medium text-green-500">
+                          {shift.shift_amount ? `₪${shift.shift_amount.toLocaleString()}` : '-'}
+                        </td>
                         <td className="text-sm text-gray-600 dark:text-gray-400">
                           {shift.description || '-'}
                         </td>
@@ -284,6 +300,19 @@ export default function ShiftsPage() {
                   className="w-full"
                   placeholder="0"
                   required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  סכום משמרת (₪)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={shiftAmount}
+                  onChange={(e) => setShiftAmount(e.target.value)}
+                  className="w-full"
+                  placeholder="0.00"
                 />
               </div>
               <div>

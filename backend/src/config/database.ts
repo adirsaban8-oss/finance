@@ -95,6 +95,7 @@ export const initDB = async (): Promise<void> => {
     await pool.query(`
       ALTER TABLE shifts ADD COLUMN IF NOT EXISTS shift_hours VARCHAR(20);
       ALTER TABLE shifts ADD COLUMN IF NOT EXISTS description TEXT;
+      ALTER TABLE shifts ADD COLUMN IF NOT EXISTS shift_amount DECIMAL(10,2);
     `);
     console.log('Database tables initialized successfully');
   } catch (error) {

@@ -24,12 +24,12 @@ export const getShifts = async (req: AuthRequest, res: Response): Promise<void> 
 export const createShift = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.userId;
-    const { date, shift_type, hours, hourly_wage, shift_hours, description } = req.body;
+    const { date, shift_type, hours, hourly_wage, shift_hours, description, shift_amount } = req.body;
     if (!date || !shift_type || hours === undefined) { res.status(400).json({ error: 'Date, shift_type, and hours are required.' }); return; }
 
     const result = await pool.query(
-      'INSERT INTO shifts (user_id, date, shift_type, hours, hourly_wage, shift_hours, description) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-      [userId, date, shift_type, hours, hourly_wage || null, shift_hours || null, description || null]
+      'INSERT INTO shifts (user_id, date, shift_type, hours, hourly_wage, shift_hours, description, shift_amount) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+      [userId, date, shift_type, hours, hourly_wage || null, shift_hours || null, description || null, shift_amount || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -42,15 +42,15 @@ export const updateShift = async (req: AuthRequest, res: Response): Promise<void
   try {
     const userId = req.userId;
     const { id } = req.params;
-    const { date, shift_type, hours, hourly_wage, shift_hours, description } = req.body;
+    const { date, shift_type, hours, hourly_wage, shift_hours, description, shift_amount } = req.body;
 
     const existing = await pool.query('SELECT * FROM shifts WHERE id=$1 AND user_id=$2', [id, userId]);
     if (existing.rows.length === 0) { res.status(404).json({ error: 'Shift not found.' }); return; }
     const old = existing.rows[0];
 
     const result = await pool.query(
-      'UPDATE shifts SET date=$1, shift_type=$2, hours=$3, hourly_wage=$4, shift_hours=$5, description=$6 WHERE id=$7 AND user_id=$8 RETURNING *',
-      [date || old.date, shift_type || old.shift_type, hours !== undefined ? hours : old.hours, hourly_wage !== undefined ? hourly_wage : old.hourly_wage, shift_hours !== undefined ? shift_hours : old.shift_hours, description !== undefined ? description : old.description, id, userId]
+      'UPDATE shifts SET date=$1, shift_type=$2, hours=$3, hourly_wage=$4, shift_hours=$5, description=$6, shift_amount=$7 WHERE id=$8 AND user_id=$9 RETURNING *',
+      [date || old.date, shift_type || old.shift_type, hours !== undefined ? hours : old.hours, hourly_wage !== undefined ? hourly_wage : old.hourly_wage, shift_hours !== undefined ? shift_hours : old.shift_hours, description !== undefined ? description : old.description, shift_amount !== undefined ? shift_amount : old.shift_amount, id, userId]
     );
     res.json(result.rows[0]);
   } catch (error) {
