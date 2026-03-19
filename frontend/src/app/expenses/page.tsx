@@ -274,16 +274,6 @@ export default function ExpensesPage() {
             </div>
           )}
 
-          {/* Monthly Total */}
-          <div className="card p-6 text-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-              סה&quot;כ הוצאות החודש
-            </p>
-            <p className="text-3xl font-bold text-red-500">
-              ₪{monthlyTotal.toLocaleString()}
-            </p>
-          </div>
-
           {/* Filters */}
           <div className="card p-4 flex flex-col sm:flex-row gap-4">
             <div className="flex items-center gap-2">
