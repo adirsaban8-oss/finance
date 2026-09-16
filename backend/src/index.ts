@@ -12,6 +12,9 @@ import taskRoutes from './routes/tasks';
 import budgetRoutes from './routes/budgets';
 import dashboardRoutes from './routes/dashboard';
 import settingsRoutes from './routes/settings';
+import voucherRoutes from './routes/vouchers';
+import passwordRoutes from './routes/passwords';
+import salaryRoutes from './routes/salaries';
 
 dotenv.config();
 
@@ -33,6 +36,9 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/vouchers', voucherRoutes);
+app.use('/api/passwords', passwordRoutes);
+app.use('/api/salaries', salaryRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

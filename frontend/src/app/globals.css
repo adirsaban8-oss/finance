@@ -14,11 +14,26 @@
 
 html {
   scroll-behavior: smooth;
+  /* Stop iOS Safari from inflating text sizes on its own */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-300;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  /* System font first: on iPhone this picks San Francisco instead of the much wider Verdana fallback */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  overscroll-behavior-y: none;
+}
+
+/* Respect the iPhone notch / home indicator */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Scrollbar styling */
@@ -82,6 +97,24 @@ body {
 /* Input styles */
 input, select, textarea {
   @apply bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all duration-200;
+  max-width: 100%;
+}
+
+/* iOS Safari zooms the whole page when focusing a field smaller than 16px.
+   Keep fields at 16px on phones so the layout never jumps in size. */
+@media (max-width: 639px) {
+  input, select, textarea {
+    font-size: 16px !important;
+    min-height: 44px;
+  }
+
+  button {
+    min-height: 40px;
+  }
+
+  th, td {
+    @apply px-3 py-2 text-sm;
+  }
 }
 
 /* Button base */

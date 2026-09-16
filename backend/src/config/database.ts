@@ -90,6 +90,48 @@ export const initDB = async (): Promise<void> => {
         category_budget DECIMAL(10,2),
         UNIQUE(user_id, month, category)
       );
+
+      CREATE TABLE IF NOT EXISTS vouchers (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        name VARCHAR(150) NOT NULL,
+        initial_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+        balance DECIMAL(10,2) NOT NULL DEFAULT 0,
+        expiry_date DATE,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS voucher_usages (
+        id SERIAL PRIMARY KEY,
+        voucher_id INTEGER REFERENCES vouchers(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id),
+        amount DECIMAL(10,2) NOT NULL,
+        description TEXT,
+        used_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS passwords (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        name VARCHAR(150) NOT NULL,
+        username VARCHAR(150),
+        password_encrypted TEXT NOT NULL,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS salaries (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        month VARCHAR(7) NOT NULL,
+        employer VARCHAR(150),
+        gross DECIMAL(12,2) NOT NULL DEFAULT 0,
+        net DECIMAL(12,2) NOT NULL DEFAULT 0,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
     `);
     // Add new columns if they don't exist
     await pool.query(`
