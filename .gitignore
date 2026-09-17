@@ -1,4 +1,4 @@
-# Dependencies
+﻿# Dependencies
 node_modules/
 
 # Build output
@@ -28,5 +28,6 @@ npm-debug.log*
 # TypeScript incremental build info
 *.tsbuildinfo
 
-# Data import script with real credentials
-insert-passwords-salaries.js
+# Private scripts with real credentials (never commit)
+private/
+insert-*.js
