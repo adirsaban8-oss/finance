@@ -27,3 +27,6 @@ npm-debug.log*
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# Data import script with real credentials
+insert-passwords-salaries.js
